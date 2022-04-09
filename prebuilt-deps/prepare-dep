@@ -55,4 +55,4 @@ get_dep() {
     fi
 }
 
-get_dep "$url" "$sum" "$dir"
+# get_dep "$url" "$sum" "$dir"

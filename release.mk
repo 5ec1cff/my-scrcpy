@@ -24,6 +24,8 @@ SERVER_BUILD_DIR := build-server
 WIN32_BUILD_DIR := build-win32
 WIN64_BUILD_DIR := build-win64
 
+WIN64_DEBUG_DIR := debug-win64
+
 DIST := dist
 WIN32_TARGET_DIR := scrcpy-win32
 WIN64_TARGET_DIR := scrcpy-win64
@@ -87,6 +89,17 @@ build-win64: prepare-deps-win64
 			-Dcompile_server=false \
 			-Dportable=true )
 	ninja -C "$(WIN64_BUILD_DIR)"
+
+debug-win64: prepare-deps-win64
+	[ -d "$(WIN64_DEBUG_DIR)" ] || ( mkdir "$(WIN64_DEBUG_DIR)" && \
+		meson "$(WIN64_DEBUG_DIR)" \
+			--cross-file nocross_win64.txt \
+			--buildtype debug \
+			-Dcrossbuild_windows=true \
+			-Dcompile_server=false \
+			-Dportable=true -Ddebug=true )
+	ninja -C "$(WIN64_DEBUG_DIR)"
+	cp "$(WIN64_DEBUG_DIR)/client/scrcpy.exe" "$(WIN64_DEBUG_DIR)/../../run2/scrcpy.exe"
 
 dist-win32: build-server build-win32
 	mkdir -p "$(DIST)/$(WIN32_TARGET_DIR)"

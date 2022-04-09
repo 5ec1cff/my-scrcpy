@@ -1,14 +1,13 @@
-apply plugin: 'com.android.application'
+apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 30
     defaultConfig {
-        applicationId "com.genymobile.scrcpy"
-        minSdkVersion 21
+        minSdkVersion 26
         targetSdkVersion 30
-        versionCode 11800
-        versionName "1.18"
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField 'int', 'VERSION_CODE', String.valueOf(11800)
+        buildConfigField 'String', 'VERSION_NAME', "\"1.18\""
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {
         release {
@@ -16,11 +15,21 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+repositories {
+    mavenCentral()
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     testImplementation 'junit:junit:4.13'
+    implementation project(":shared")
+    compileOnly project(":hidden-api-stub")
 }
 
 apply from: "$project.rootDir/config/android-checkstyle.gradle"

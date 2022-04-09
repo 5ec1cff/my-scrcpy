@@ -8,7 +8,7 @@ project('scrcpy', 'c',
         ])
 
 if get_option('compile_app')
-    subdir('app')
+    subdir('client')
 endif
 
 if get_option('compile_server')
