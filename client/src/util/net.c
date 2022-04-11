@@ -20,24 +20,44 @@
 #endif
 
 socket_t
-net_connect(uint32_t addr, uint16_t port) {
-    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
-    LOGD("connect to %d, %d", addr, port);
-    if (sock == INVALID_SOCKET) {
-        perror("socket");
+net_connect(const char *host, const char *port) {
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    char buf[32];
+    // 11003: https://stackoverflow.com/questions/22748234/getaddrinfo-function-throw-error-n-11003
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;
+    int s = getaddrinfo(host, port, &hints, &result);
+    if (s != 0) {
+        LOGE("getaddrinfo for %s %s (%d): %s", host, port, s, gai_strerror(s));
         return INVALID_SOCKET;
     }
 
-    SOCKADDR_IN sin;
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = addr; // htonl(addr);
-    sin.sin_port = htons(port);
+    socket_t sock = INVALID_SOCKET;
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sock = socket(rp->ai_family, rp->ai_socktype, 0);
+        if (sock == INVALID_SOCKET) {
+            // perror("socket");
+            continue;
+        }
+        // https://gist.github.com/twslankard/1001201#file-getaddrinfo-c-L30
+        inet_ntop(rp->ai_family, &((SOCKADDR_IN*)rp->ai_addr)->sin_addr, buf, 32);
+        LOGV("try connect to %s", buf);
+        
 
-    if (connect(sock, (SOCKADDR *) &sin, sizeof(sin)) == SOCKET_ERROR) {
-        perror("connect");
-        net_close(sock);
-        return INVALID_SOCKET;
+        if (connect(sock, (SOCKADDR *) rp->ai_addr, rp->ai_addrlen) == SOCKET_ERROR) {
+            // perror("connect");
+            net_close(sock);
+            continue;
+        }
+
+        break;
     }
+
+    freeaddrinfo(result);
 
     return sock;
 }

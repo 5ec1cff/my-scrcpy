@@ -30,12 +30,13 @@ class ControlMessageReader {
             throw IllegalStateException("Buffer full, call next() to consume")
         }
         buffer.compact()
-        val head = buffer.position()
-        val r = channel.read(buffer)
-        if (r == -1) {
-            throw EOFException("Controller socket closed")
+        while (true) {
+            val r = channel.read(buffer)
+            if (r == -1) {
+                throw EOFException("Controller socket closed")
+            }
+            if (r == 0) break
         }
-        buffer.position(head + r)
         buffer.flip()
     }
 

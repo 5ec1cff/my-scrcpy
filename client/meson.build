@@ -25,6 +25,7 @@ src = [
     'src/util/process.c',
     'src/util/str_util.c',
     'src/util/thread.c',
+    'src/discovery.c',
 ]
 
 if host_machine.system() == 'windows'
@@ -97,6 +98,7 @@ endif
 
 if host_machine.system() == 'windows'
     dependencies += cc.find_library('ws2_32')
+    dependencies += cc.find_library('iphlpapi')
 endif
 
 conf = configuration_data()

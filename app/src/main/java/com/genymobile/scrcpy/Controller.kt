@@ -69,6 +69,7 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
     }
 
     private fun handleMessage(msg: ControlMessage) {
+        // Ln.d("$msg")
         when (msg) {
             is InjectKeycode -> {
                 if (device.supportsInputEvents()) {

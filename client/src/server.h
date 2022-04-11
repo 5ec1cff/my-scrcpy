@@ -20,38 +20,18 @@ struct server {
     socket_t server_socket; // only used if !tunnel_forward
     socket_t video_socket;
     socket_t control_socket;
-    union {
-        uint32_t v4;
-    } addr;
-    uint16_t local_port; // selected from port_range
+    const char *addr;
+    const char *port; // selected from port_range
 };
 
-struct server_params {
-    const char *address;
-    enum sc_log_level log_level;
-    const char *crop;
-    const char *codec_options;
-    const char *encoder_name;
-    uint16_t port;
-    uint16_t max_size;
-    uint32_t bit_rate;
-    uint16_t max_fps;
-    int8_t lock_video_orientation;
-    bool control;
-    uint32_t display_id;
-    bool show_touches;
-    bool stay_awake;
-    bool force_adb_forward;
-    bool power_off_on_close;
-};
 
 // init default values
 bool
 server_init(struct server *server);
 
-// push, enable tunnel et start the server
+// discovery server
 bool
-server_start(struct server *server, const struct server_params *params);
+server_discovery(struct server *server, const struct scrcpy_options *options);
 
 #define DEVICE_NAME_FIELD_LENGTH 64
 // block until the communication with the server is established

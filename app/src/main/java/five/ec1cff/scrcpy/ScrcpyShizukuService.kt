@@ -14,6 +14,7 @@ class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
     }
 
     override fun exit() {
+        Log.d(TAG, "exit called")
         System.exit(0)
     }
 

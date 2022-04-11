@@ -14,6 +14,7 @@
 #include "util/str_util.h"
 #include "control_msg.h"
 #include "scrcpy.h"
+#include "discovery.h"
 
 static const char *
 log_level_to_server_string(enum sc_log_level level) {
@@ -142,7 +143,7 @@ close_socket(socket_t socket) {
 
 bool
 server_init(struct server *server) {
-    server->addr.v4 = INADDR_NONE;
+    server->addr = NULL;
     atomic_flag_clear_explicit(&server->server_socket_closed,
                                memory_order_relaxed);
 
@@ -150,62 +151,27 @@ server_init(struct server *server) {
     server->video_socket = INVALID_SOCKET;
     server->control_socket = INVALID_SOCKET;
 
-    server->local_port = 0;
+    server->port = NULL;
 
     return true;
 }
 
 bool
-server_start(struct server *server, const struct server_params *params) {
-    if (params->address) {
-        uint32_t addr = inet_addr(params->address);
-        if (addr == INADDR_NONE) {
-            LOGE("invalid ipv4 address %s", params->address);
-            return false;
+server_discovery(struct server *server, const struct scrcpy_options *options) {
+    if (options->address == NULL || options->port == NULL) {
+        if (options->discovery_name != NULL) {
+            if (send_query(options->discovery_name, &server->addr, &server->port) == 0)
+                return false;
+            else {
+                return true;
+            }
         }
-        server->addr.v4 = addr;
-    }
-
-    if (params->port > 0 && params->port < 65535) {
-        server->local_port = params->port;
+        LOGE("no server address or port");
+        return false;
     } else {
-        LOGE("no port specified");
-        return false;
+        server->addr = strdup(options->address);
+        server->port = strdup(options->port);
     }
-
-    /*
-
-    if (!push_server(params->address)) {
-        /* server->serial will be freed on server_destroy() /
-        return false;
-    }
-
-    if (!enable_tunnel_any_port(server, params->port_range,
-                                params->force_adb_forward)) {
-        return false;
-    }
-
-    // server will connect to our server socket
-    server->process = execute_server(server, params);
-    if (server->process == PROCESS_NONE) {
-        goto error;
-    }
-
-    // If the server process dies before connecting to the server socket, then
-    // the client will be stuck forever on accept(). To avoid the problem, we
-    // must be able to wake up the accept() call when the server dies. To keep
-    // things simple and multiplatform, just spawn a new thread waiting for the
-    // server process and calling shutdown()/close() on the server socket if
-    // necessary to wake up any accept() blocking call.
-    bool ok = sc_thread_create(&server->wait_server_thread, run_wait_server,
-                               "wait-server", server);
-    if (!ok) {
-        process_terminate(server->process);
-        process_wait(server->process, true); // ignore exit code
-        goto error;
-    }
-
-    server->tunnel_enabled = true;*/
 
     return true;
 }
@@ -247,7 +213,7 @@ server_connect_to(struct server *server, char *device_name, struct size *size, c
     uint32_t attempts = 100;
     uint32_t delay = 100; // ms
     server->video_socket =
-        net_connect(server->addr.v4, server->local_port);
+        net_connect(server->addr, server->port);
     if (server->video_socket == INVALID_SOCKET) {
         return false;
     }
@@ -270,7 +236,7 @@ server_connect_to(struct server *server, char *device_name, struct size *size, c
 
     // we know that the device is listening, we don't need several attempts
     server->control_socket =
-        net_connect(server->addr.v4, server->local_port);
+        net_connect(server->addr, server->port);
     if (server->control_socket == INVALID_SOCKET) {
         return false;
     }

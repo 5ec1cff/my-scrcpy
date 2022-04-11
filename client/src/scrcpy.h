@@ -59,6 +59,8 @@ struct scrcpy_options {
     const char *codec_options;
     const char *encoder_name;
     const char *v4l2_device;
+    const char *discovery_name;
+    const char *port;
     enum sc_log_level log_level;
     enum sc_record_format record_format;
     struct sc_shortcut_mods shortcut_mods;
@@ -72,7 +74,6 @@ struct scrcpy_options {
     uint16_t window_width;
     uint16_t window_height;
     uint32_t display_id;
-    uint16_t port;
     bool show_touches;
     bool fullscreen;
     bool always_on_top;
@@ -135,7 +136,7 @@ struct scrcpy_options {
     .legacy_paste = false, \
     .power_off_on_close = false, \
     .ext_options = "", \
-    .port = 0, \
+    .port = NULL, \
 }
 
 bool

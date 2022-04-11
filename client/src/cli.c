@@ -680,6 +680,7 @@ scrcpy_parse_args(struct scrcpy_cli_args *args, int argc, char *argv[]) {
         {"crop",                   required_argument, NULL, OPT_CROP},
         {"disable-screensaver",    no_argument,       NULL,
                                                   OPT_DISABLE_SCREENSAVER},
+        {"discovery", required_argument, NULL, 'd'},
         {"display",                required_argument, NULL, OPT_DISPLAY_ID},
         {"encoder",                required_argument, NULL, OPT_ENCODER_NAME},
         {"force-adb-forward",      no_argument,       NULL,
@@ -733,7 +734,7 @@ scrcpy_parse_args(struct scrcpy_cli_args *args, int argc, char *argv[]) {
     optind = 0; // reset to start from the first argument in tests
 
     int c;
-    while ((c = getopt_long(argc, argv, "b:c:fF:hm:nNp:r:s:StTvV:w",
+    while ((c = getopt_long(argc, argv, "b:c:d:fF:hm:nNp:r:s:StTvV:w",
                             long_options, NULL)) != -1) {
         switch (c) {
             case 'b':
@@ -746,6 +747,9 @@ scrcpy_parse_args(struct scrcpy_cli_args *args, int argc, char *argv[]) {
                 // fall through
             case OPT_CROP:
                 opts->crop = optarg;
+                break;
+            case 'd':
+                opts->discovery_name = optarg;
                 break;
             case OPT_DISPLAY_ID:
                 if (!parse_display_id(optarg, &opts->display_id)) {
@@ -789,9 +793,11 @@ scrcpy_parse_args(struct scrcpy_cli_args *args, int argc, char *argv[]) {
                 opts->display = false;
                 break;
             case 'p':
+            /*
                 if (!parse_port(optarg, &opts->port)) {
                     return false;
-                }
+                }*/
+                opts->port = optarg;
                 break;
             case 'r':
                 opts->record_filename = optarg;

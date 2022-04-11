@@ -5,7 +5,7 @@ package five.ec1cff.scrcpy;
 interface IScrcpyShizukuService {
     void destroy() = 16777114; // Destroy method defined by Shizuku server
 
-    void exit() = 1; // Exit method defined by user
+    oneway void exit() = 1; // Exit method defined by user
 
     int startScrcpy(int port) = 2;
 }

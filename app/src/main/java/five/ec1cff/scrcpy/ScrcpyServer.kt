@@ -21,7 +21,12 @@ class SocketHandler {
         reader.readFrom(channel)
         val msg = reader.next() ?: return
         if (this::controller.isInitialized) {
-            controller.onMessage(msg)
+            var newMsg: ControlMessage? = msg
+            while (newMsg != null) {
+                controller.onMessage(msg)
+                reader.readFrom(channel)
+                newMsg = reader.next()
+            }
         } else {
             when (msg) {
                 is InitControl -> {

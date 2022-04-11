@@ -9,6 +9,7 @@
 
 #ifdef __WINDOWS__
 # include <winsock2.h>
+# include <ws2tcpip.h>
   #define SHUT_RD SD_RECEIVE
   #define SHUT_WR SD_SEND
   #define SHUT_RDWR SD_BOTH
@@ -26,7 +27,7 @@ void
 net_cleanup(void);
 
 socket_t
-net_connect(uint32_t addr, uint16_t port);
+net_connect(const char *host, const char *port);
 
 socket_t
 net_listen(uint32_t addr, uint16_t port, int backlog);

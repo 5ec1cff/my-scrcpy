@@ -263,25 +263,8 @@ scrcpy(const struct scrcpy_options *options) {
     bool screen_initialized = false;
 
     bool record = !!options->record_filename;
-    struct server_params params = {
-        .address = options->address,
-        .log_level = options->log_level,
-        .crop = options->crop,
-        .port = options->port,
-        .max_size = options->max_size,
-        .bit_rate = options->bit_rate,
-        .max_fps = options->max_fps,
-        .lock_video_orientation = options->lock_video_orientation,
-        .control = options->control,
-        .display_id = options->display_id,
-        .show_touches = options->show_touches,
-        .stay_awake = options->stay_awake,
-        .codec_options = options->codec_options,
-        .encoder_name = options->encoder_name,
-        .force_adb_forward = options->force_adb_forward,
-        .power_off_on_close = options->power_off_on_close,
-    };
-    if (!server_start(&s->server, &params)) {
+
+    if (!server_discovery(&s->server, options)) {
         goto end;
     }
 
