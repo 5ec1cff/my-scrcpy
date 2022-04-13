@@ -23,7 +23,7 @@ class SocketHandler {
         if (this::controller.isInitialized) {
             var newMsg: ControlMessage? = msg
             while (newMsg != null) {
-                controller.onMessage(msg)
+                controller.onMessage(newMsg)
                 reader.readFrom(channel)
                 newMsg = reader.next()
             }

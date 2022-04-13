@@ -2,6 +2,8 @@
 package five.ec1cff.scrcpy.ext.shared;
 
 interface IInputMethod {
-    void commitText(CharSequence c);
-    void commitComposingText(CharSequence c);
+    oneway void setClient(IBinder client);
+    boolean isInputMethodAvaliable();
+    oneway void commitText(CharSequence c);
+    oneway void commitComposingText(CharSequence c);
 }

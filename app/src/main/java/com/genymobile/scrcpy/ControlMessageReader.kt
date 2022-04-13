@@ -148,14 +148,18 @@ class ControlMessageReader {
         return msg
     }
 
+    val utf8Decoder = StandardCharsets.UTF_8.newDecoder()
+
     private fun parseString(): String? {
         if (buffer.remaining() >= 4) {
             val len = buffer.int
             if (buffer.remaining() >= len) {
-                val position = buffer.position()
-                // Move the buffer position to consume the text
-                buffer.position(position + len)
-                return String(buffer.array(), position, len, StandardCharsets.UTF_8)
+                val limit = buffer.limit()
+                buffer.limit(buffer.position() + len)
+                return utf8Decoder.decode(buffer).toString().also {
+                    buffer.limit(limit)
+                    // Ln.d("parseString $len $it ${buffer.remaining()}")
+                }
             }
         }
         return null

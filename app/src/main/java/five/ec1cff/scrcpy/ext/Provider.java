@@ -53,7 +53,7 @@ public class Provider extends ContentProvider {
         if (method.equals(METHOD_SEND_BINDER)) {
             if (extras != null) {
                 IBinder binder = extras.getBinder(EXTRA_BINDER);
-                MyInputMethod.onBindScrcpyInputMethod(binder);
+                // MyInputMethod.onBindScrcpyInputMethod(binder);
                 return new Bundle();
             }
         }

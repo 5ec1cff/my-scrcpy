@@ -12,7 +12,7 @@ class DeviceMessageSender(val selectionKey: SelectionKey, val handler: Handler) 
 
     val CLIPBOARD_TEXT_MAX_LENGTH = MESSAGE_MAX_SIZE - 5 // type: 1 byte; length: 4 bytes
 
-    private val buffer = ByteBuffer.allocateDirect(MESSAGE_MAX_SIZE);
+    private val buffer = ByteBuffer.allocateDirect(MESSAGE_MAX_SIZE).apply { limit(0) }
 
     fun schedulePushMessage(msg: DeviceMessage) {
         handler.post {
@@ -43,6 +43,7 @@ class DeviceMessageSender(val selectionKey: SelectionKey, val handler: Handler) 
             }
             else -> Ln.w("Unknown device message: " + msg.type)
         }
+        buffer.flip()
         write()
     }
 

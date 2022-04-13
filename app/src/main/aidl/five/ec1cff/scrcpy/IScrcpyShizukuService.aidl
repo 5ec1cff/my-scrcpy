@@ -7,5 +7,5 @@ interface IScrcpyShizukuService {
 
     oneway void exit() = 1; // Exit method defined by user
 
-    int startScrcpy(int port) = 2;
+    int startScrcpy(int port, IBinder inputMethod) = 2;
 }

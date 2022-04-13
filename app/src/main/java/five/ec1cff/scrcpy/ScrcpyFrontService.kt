@@ -12,6 +12,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import five.ec1cff.scrcpy.ext.inputmethod.MyInputMethod
+import five.ec1cff.scrcpy.ext.shared.IInputMethod
 import rikka.shizuku.Shizuku
 
 const val CHANNEL_ID = "scrcpy"
@@ -39,7 +41,7 @@ class ScrcpyFrontService : Service() {
         override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
             Log.d(TAG, "shizuku service connected")
             shizukuService = IScrcpyShizukuService.Stub.asInterface(p1)
-            val serverPort = shizukuService.startScrcpy(0)
+            val serverPort = shizukuService.startScrcpy(0, MyInputMethod.inputMethod.asBinder())
             Log.d(TAG, "server listen on ${serverPort}")
             handler.post {
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, createNotification(serverPort))

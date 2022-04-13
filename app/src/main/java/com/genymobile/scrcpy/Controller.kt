@@ -29,7 +29,7 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
         device = ScreenDevice(displayId, maxSize, lockedVideoOrientation)
         initPointers()
         if (device.supportsInputEvents()) {
-            IMEController.get().setListener(object: IMEController.Listener {
+            IMEController.listener = object: IMEController.Listener {
                 override fun onInputStarted() {
                     sender.schedulePushMessage(DeviceMessage.createEmpty(DeviceMessage.TYPE_IME_INPUT_STARTED))
                 }
@@ -44,7 +44,7 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
                     Ln.d("Controller: onCursorChanged pos from ($x, $y) to (${pos[0]}, ${pos[1]})")
                     sender.schedulePushMessage(DeviceMessage.createCursorChanged(pos[0], pos[1]))
                 }
-            })
+            }
         }
     }
 
@@ -134,7 +134,7 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
 
             is IMEComposing -> {
                 if (device.supportsInputEvents()) {
-                    IMEController.get().commitComposingText(msg.text)
+                    IMEController.commitComposingText(msg.text)
                 }
                  }
         }
@@ -161,9 +161,8 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
     }
 
     private fun injectText(text: String): Int {
-        val ic = IMEController.get()
-        if (ic.isIMENeeded()) {
-            if (ic.commitText(text))
+        if (IMEController.method?.isInputMethodAvaliable == true) {
+            if (IMEController.commitText(text))
                 return text.length
             Ln.w("ime inject failed, inject via IM instead")
         }
