@@ -13,14 +13,15 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+// TODO: use android's DisplayManager API instead
 @SuppressLint("PrivateApi")
-public final class DisplayManager {
+public final class MyDisplayManager {
     private final IInterface manager;
 
     private Method createVirtualDisplayMethod;
     private static Object globalCallback = null;
 
-    public DisplayManager(IInterface manager) {
+    public MyDisplayManager(IInterface manager) {
         this.manager = manager;
         try {
             createVirtualDisplayMethod = manager.getClass().getMethod("createVirtualDisplay",

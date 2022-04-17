@@ -65,7 +65,12 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
 
     fun onMessage(msg: ControlMessage) {
         handler.post {
-            handleMessage(msg)
+            try {
+                handleMessage(msg)
+            } catch (t: Throwable) {
+                Ln.e("controller for $clientRecord error, terminate.", t)
+                clientRecord.cleanUp()
+            }
         }
     }
 
@@ -76,27 +81,27 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
                 if (device.supportsInputEvents()) {
                     injectKeycode(msg)
                 }
-                 }
+            }
             is InjectText -> {
                 if (device.supportsInputEvents()) {
                     injectText(msg.text)
                 }
-                 }
+            }
             is InjectTouchEvent -> {
                 if (device.supportsInputEvents()) {
                     injectTouch(msg)
                 }
-                 }
+            }
             is InjectScrollEvent -> {
                 if (device.supportsInputEvents()) {
                     injectScroll(msg)
                 }
-                 }
+            }
             is BackOrScreenOn -> {
                 if (device.supportsInputEvents()) {
                     pressBackOrTurnScreenOn(msg.action)
                 }
-                 }
+            }
             is Empty -> {
                 when (msg.type) {
                     TYPE_EXPAND_NOTIFICATION_PANEL -> {
@@ -121,7 +126,7 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
             }
             is SetClipboard -> {
                 setClipboard(msg.text, msg.paste)
-                 }
+            }
             is SetScreenPowerMode -> {
                 if (device.supportsInputEvents()) {
                     val mode = msg.mode
@@ -131,13 +136,13 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
                         Ln.i("Device screen turned " + (if (mode == ScreenDevice.POWER_MODE_OFF) "off" else "on"))
                     }
                 }
-                 }
+            }
 
             is IMEComposing -> {
                 if (device.supportsInputEvents()) {
                     IMEController.commitComposingText(msg.text)
                 }
-                 }
+            }
         }
     }
 

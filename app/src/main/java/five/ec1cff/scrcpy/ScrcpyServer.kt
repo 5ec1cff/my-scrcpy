@@ -1,7 +1,12 @@
 package five.ec1cff.scrcpy
 
+import android.annotation.SuppressLint
+import android.app.ActivityThread
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
+import android.system.Os
 import android.util.Log
 import com.genymobile.scrcpy.*
 import java.io.IOException
@@ -32,6 +37,7 @@ class ScrcpyClientRecord(val sessionId: Int, val initData: Init) {
     }
 }
 
+@SuppressLint("StaticFieldLeak")
 object ScrcpyServer {
     private var started = false
     private var running = false
@@ -39,6 +45,9 @@ object ScrcpyServer {
     private lateinit var serverSocketChannel: ServerSocketChannel
     private var initReader: ControlMessageReader = ControlMessageReader()
     val clientMap: MutableMap<Int, ScrcpyClientRecord> = HashMap()
+
+    val context: Context = ActivityThread.currentActivityThread().systemContext
+    val handler = Handler(Looper.getMainLooper())
 
     private var nextSessionId = 0
         get() {
@@ -134,6 +143,11 @@ object ScrcpyServer {
     fun start(port: Int): Int {
         if (started) return 0
         Ln.initLogLevel(Ln.Level.DEBUG)
+        handler.post {
+            // seteuid for main thread can be used for Binder.getCallingUid check
+            Os.seteuid(1000)
+            Ln.d("euid=${Os.geteuid()}, uid=${Process.myUid()}")
+        }
         serverSocketChannel = ServerSocketChannel.open().also {
             it.socket().bind(InetSocketAddress(port))
             it.configureBlocking(false)

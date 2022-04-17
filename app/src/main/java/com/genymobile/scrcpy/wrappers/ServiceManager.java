@@ -17,7 +17,7 @@ public final class ServiceManager {
 
     // private WindowManager windowManager;
     private IWindowManager windowManager;
-    private DisplayManager displayManager;
+    private MyDisplayManager myDisplayManager;
     private InputManager inputManager;
     private PowerManager powerManager;
     private StatusBarManager statusBarManager;
@@ -59,11 +59,11 @@ public final class ServiceManager {
         return windowManager;
     }
 
-    public DisplayManager getDisplayManager() {
-        if (displayManager == null) {
-            displayManager = new DisplayManager(getService("display", "android.hardware.display.IDisplayManager"));
+    public MyDisplayManager getDisplayManager() {
+        if (myDisplayManager == null) {
+            myDisplayManager = new MyDisplayManager(getService("display", "android.hardware.display.IDisplayManager"));
         }
-        return displayManager;
+        return myDisplayManager;
     }
 
     public InputManager getInputManager() {

@@ -2,14 +2,15 @@ package com.genymobile.scrcpy;
 
 import com.genymobile.scrcpy.wrappers.ClipboardManager;
 import com.genymobile.scrcpy.wrappers.ContentProvider;
-import com.genymobile.scrcpy.wrappers.DisplayManager;
+import com.genymobile.scrcpy.wrappers.MyDisplayManager;
 import com.genymobile.scrcpy.wrappers.InputManager;
 import com.genymobile.scrcpy.wrappers.ServiceManager;
 import com.genymobile.scrcpy.wrappers.SurfaceControl;
-import com.genymobile.scrcpy.wrappers.WindowManager;
 
 import android.content.IOnPrimaryClipChangedListener;
 import android.graphics.Rect;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -26,6 +27,8 @@ import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESE
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE;
 
+import five.ec1cff.scrcpy.ScrcpyServer;
+
 public final class ScreenDevice extends IRotationWatcher.Stub {
 
     public static final int POWER_MODE_OFF = SurfaceControl.POWER_MODE_OFF;
@@ -35,6 +38,7 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
     public static final int LOCK_VIDEO_ORIENTATION_INITIAL = -2;
 
     private static final ServiceManager SERVICE_MANAGER = ServiceManager.get();
+    private static final DisplayManager displayManager = ScrcpyServer.INSTANCE.getContext().getSystemService(DisplayManager.class);
 
     public interface RotationListener {
         void onRotationChanged(int rotation);
@@ -62,36 +66,64 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
 
     private final boolean supportsInputEvents;
 
+    private VirtualDisplay virtualDisplay;
+
     public boolean isVirtual = false;
 
-    public ScreenDevice(int displayId, int maxSize, int lockedVideoOrientation) {
-        DisplayManager displayManager = SERVICE_MANAGER.getDisplayManager();
-        DisplayInfo displayInfo = displayManager.getDisplayInfo(displayId);
+    private boolean rotationWatcherRegistered = false;
+
+    private DisplayManager.DisplayListener listener = new DisplayManager.DisplayListener() {
+        @Override
+        public void onDisplayAdded(int i) {
+            if (i == displayId) {
+                Ln.d("virtual display created");
+                registerRotationWatcher();
+                displayManager.unregisterDisplayListener(this);
+            }
+        }
+
+        @Override
+        public void onDisplayRemoved(int i) {
+
+        }
+
+        @Override
+        public void onDisplayChanged(int i) {
+
+        }
+    };
+
+    public ScreenDevice(int requestedDisplayId, int maxSize, int lockedVideoOrientation) {
+        MyDisplayManager myDisplayManager = SERVICE_MANAGER.getDisplayManager();
+        displayId = requestedDisplayId;
+        DisplayInfo displayInfo = myDisplayManager.getDisplayInfo(displayId);
         if (displayInfo == null) {
-            /*
+            Ln.d("no display found, try create virtual display");
             // get main screen display info
-            DisplayInfo mainDisplay = displayManager.getDisplayInfo(0);
+            DisplayInfo mainDisplay = myDisplayManager.getDisplayInfo(0);
             Size mainDisplaySize = mainDisplay.getSize();
             int flags;
-            if (android.os.Process.myUid() == 1000) {
+            // Process.myUid() returns original uid (0) even if we have called seteuid(1000) (?)
+            if (true || android.os.Process.myUid() == 1000) {
+                Ln.d("create with system perm");
+                // perm check pass only if binder caller uid=1000 and package belongs to android
                 flags = VIRTUAL_DISPLAY_FLAG_PUBLIC | VIRTUAL_DISPLAY_FLAG_SECURE | VIRTUAL_DISPLAY_FLAG_PRESENTATION;
             } else {
                 flags = VIRTUAL_DISPLAY_FLAG_PRESENTATION;
             }
-            int vd = displayManager.createVirtualDisplay("virtual test",
+            VirtualDisplay vd = displayManager.createVirtualDisplay("scrcpy_" + displayId,
                     mainDisplaySize.getWidth(), mainDisplaySize.getHeight(), mainDisplay.getDensityDpi(),
-                    flags);
-            System.out.println(vd);
-            if (vd >= 0) {
-                displayInfo = displayManager.getDisplayInfo(vd);
-                System.out.println("get virtual display id:" + vd);
-                displayId = vd;
+                    null, flags);
+            if (vd != null) {
+                displayId = vd.getDisplay().getDisplayId();
+                displayInfo = myDisplayManager.getDisplayInfo(displayId);
+                Ln.d("get virtual display:" + displayId);
                 isVirtual = true;
+                virtualDisplay = vd;
             } else {
-
-            }*/
-            int[] displayIds = SERVICE_MANAGER.getDisplayManager().getDisplayIds();
-            throw new InvalidDisplayIdException(displayId, displayIds);
+                int[] displayIds = SERVICE_MANAGER.getDisplayManager().getDisplayIds();
+                throw new InvalidDisplayIdException(displayId, displayIds);
+            }
         }
 
         int displayInfoFlags = displayInfo.getFlags();
@@ -99,7 +131,11 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
         screenInfo = ScreenInfo.computeScreenInfo(displayInfo, null, maxSize, lockedVideoOrientation);
         layerStack = displayInfo.getLayerStack();
 
-        currentRotation = SERVICE_MANAGER.getWindowManager().watchRotation(this, displayId);
+        if (!isVirtual) {
+            registerRotationWatcher();
+        } else {
+            displayManager.registerDisplayListener(listener, ScrcpyServer.INSTANCE.getHandler());
+        }
 
         // TODO: move to control
         if (false) {
@@ -137,6 +173,11 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
         if (!supportsInputEvents) {
             Ln.w("Input events are not supported for secondary displays before Android 10");
         }
+    }
+
+    private void registerRotationWatcher() {
+        currentRotation = SERVICE_MANAGER.getWindowManager().watchRotation(this, displayId);
+        rotationWatcherRegistered = true;
     }
 
     @Override
@@ -229,7 +270,7 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
         }
 
         if (displayId != 0 && !InputManager.setDisplayId(inputEvent, displayId)) {
-            System.out.println("failed to inject event");
+            Ln.d("failed to inject event");
             return false;
         }
 
@@ -339,6 +380,7 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
      * Disable auto-rotation (if enabled), set the screen rotation and re-enable auto-rotation (if it was enabled).
      */
     public void rotateDevice() {
+        if (!rotationWatcherRegistered) return;
         IWindowManager wm = SERVICE_MANAGER.getWindowManager();
 
         boolean accelerometerRotation = !wm.isDisplayRotationFrozen(displayId);
@@ -360,7 +402,15 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
     }
 
     public void cleanUp() {
-        // TODO: Clean up ScreenDevice
-        SERVICE_MANAGER.getWindowManager().removeRotationWatcher(this);
+        if (rotationWatcherRegistered) {
+            SERVICE_MANAGER.getWindowManager().removeRotationWatcher(this);
+        }
+        if (isVirtual && virtualDisplay != null) {
+            virtualDisplay.release();
+        }
+    }
+
+    public VirtualDisplay getVirtualDisplay() {
+        return virtualDisplay;
     }
 }

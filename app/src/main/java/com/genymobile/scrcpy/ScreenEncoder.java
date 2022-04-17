@@ -130,14 +130,13 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
                 setSize(format, videoRect.width(), videoRect.height());
                 configure(codec, format);
                 Surface surface = codec.createInputSurface();
-                ServiceManager.get().getDisplayManager().setVirtualDisplaySurface(surface);
+                device.getVirtualDisplay().setSurface(surface);
                 codec.start();
                 try {
                     alive = encode(codec, stream);
                     // do not call stop() on exception, it would trigger an IllegalStateException
                     codec.stop();
                 } finally {
-                    ServiceManager.get().getDisplayManager().releaseVirtualDisplay();
                     codec.release();
                     surface.release();
                 }

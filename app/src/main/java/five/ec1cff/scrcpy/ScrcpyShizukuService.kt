@@ -21,11 +21,6 @@ class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
     }
 
     override fun startScrcpy(port: Int, inputMethod: IBinder?): Int {
-        Handler(Looper.getMainLooper()).post {
-            // seteuid for main thread can be used for Binder.getCallingUid check
-            Os.seteuid(1000)
-            Log.d(TAG, "euid=${Os.geteuid()}, uid=${Process.myUid()}")
-        }
         inputMethod?.let {
             IMEController.method = IInputMethod.Stub.asInterface(it)?.apply {
                 setClient(IMEController.client.asBinder())
