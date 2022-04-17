@@ -3,6 +3,7 @@ package com.genymobile.scrcpy.wrappers;
 import android.annotation.SuppressLint;
 import android.os.IBinder;
 import android.os.IInterface;
+import android.view.IWindowManager;
 
 import java.lang.reflect.Method;
 
@@ -14,7 +15,8 @@ public final class ServiceManager {
 
     private final Method getServiceMethod;
 
-    private WindowManager windowManager;
+    // private WindowManager windowManager;
+    private IWindowManager windowManager;
     private DisplayManager displayManager;
     private InputManager inputManager;
     private PowerManager powerManager;
@@ -49,9 +51,10 @@ public final class ServiceManager {
         }
     }
 
-    public WindowManager getWindowManager() {
+    public IWindowManager getWindowManager() {
         if (windowManager == null) {
-            windowManager = new WindowManager(getService("window", "android.view.IWindowManager"));
+            // windowManager = new WindowManager(getService("window", "android.view.IWindowManager"));
+            windowManager = (IWindowManager) getService("window", "android.view.IWindowManager");
         }
         return windowManager;
     }

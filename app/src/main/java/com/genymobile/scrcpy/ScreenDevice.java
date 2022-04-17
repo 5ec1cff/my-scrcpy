@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.view.IRotationWatcher;
+import android.view.IWindowManager;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyCharacterMap;
@@ -25,7 +26,7 @@ import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESE
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE;
 
-public final class ScreenDevice {
+public final class ScreenDevice extends IRotationWatcher.Stub {
 
     public static final int POWER_MODE_OFF = SurfaceControl.POWER_MODE_OFF;
     public static final int POWER_MODE_NORMAL = SurfaceControl.POWER_MODE_NORMAL;
@@ -52,6 +53,7 @@ public final class ScreenDevice {
      * Logical display identifier
      */
     public int displayId;
+    private int currentRotation = 0;
 
     /**
      * The surface flinger layer stack associated with this logical display
@@ -97,19 +99,7 @@ public final class ScreenDevice {
         screenInfo = ScreenInfo.computeScreenInfo(displayInfo, null, maxSize, lockedVideoOrientation);
         layerStack = displayInfo.getLayerStack();
 
-        SERVICE_MANAGER.getWindowManager().registerRotationWatcher(new IRotationWatcher.Stub() {
-            @Override
-            public void onRotationChanged(int rotation) {
-                synchronized (ScreenDevice.this) {
-                    screenInfo = screenInfo.withDeviceRotation(rotation);
-
-                    // notify
-                    if (rotationListener != null) {
-                        rotationListener.onRotationChanged(rotation);
-                    }
-                }
-            }
-        }, displayId);
+        currentRotation = SERVICE_MANAGER.getWindowManager().watchRotation(this, displayId);
 
         // TODO: move to control
         if (false) {
@@ -146,6 +136,19 @@ public final class ScreenDevice {
         supportsInputEvents = displayId == 0 || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
         if (!supportsInputEvents) {
             Ln.w("Input events are not supported for secondary displays before Android 10");
+        }
+    }
+
+    @Override
+    public void onRotationChanged(int rotation) {
+        synchronized (ScreenDevice.this) {
+            currentRotation = rotation;
+            screenInfo = screenInfo.withDeviceRotation(rotation);
+
+            // notify
+            if (rotationListener != null) {
+                rotationListener.onRotationChanged(rotation);
+            }
         }
     }
 
@@ -335,21 +338,20 @@ public final class ScreenDevice {
     /**
      * Disable auto-rotation (if enabled), set the screen rotation and re-enable auto-rotation (if it was enabled).
      */
-    public static void rotateDevice() {
-        WindowManager wm = SERVICE_MANAGER.getWindowManager();
+    public void rotateDevice() {
+        IWindowManager wm = SERVICE_MANAGER.getWindowManager();
 
-        boolean accelerometerRotation = !wm.isRotationFrozen();
+        boolean accelerometerRotation = !wm.isDisplayRotationFrozen(displayId);
 
-        int currentRotation = wm.getRotation();
         int newRotation = (currentRotation & 1) ^ 1; // 0->1, 1->0, 2->1, 3->0
         String newRotationString = newRotation == 0 ? "portrait" : "landscape";
 
         Ln.i("Device rotation requested: " + newRotationString);
-        wm.freezeRotation(newRotation);
+        wm.freezeDisplayRotation(displayId, newRotation);
 
         // restore auto-rotate if necessary
         if (accelerometerRotation) {
-            wm.thawRotation();
+            wm.thawDisplayRotation(displayId);
         }
     }
 
@@ -359,5 +361,6 @@ public final class ScreenDevice {
 
     public void cleanUp() {
         // TODO: Clean up ScreenDevice
+        SERVICE_MANAGER.getWindowManager().removeRotationWatcher(this);
     }
 }

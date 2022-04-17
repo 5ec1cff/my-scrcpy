@@ -115,7 +115,7 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
                         }
                     }
                     TYPE_ROTATE_DEVICE -> {
-                        ScreenDevice.rotateDevice()
+                        device.rotateDevice()
                     }
                 }
             }
