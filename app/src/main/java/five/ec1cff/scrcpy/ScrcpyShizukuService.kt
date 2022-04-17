@@ -5,11 +5,11 @@ import android.system.Os
 import android.util.Log
 import com.genymobile.scrcpy.ext.IMEController
 import five.ec1cff.scrcpy.ext.shared.IInputMethod
-import java.net.ServerSocket
-import kotlin.concurrent.thread
 
 class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
-    val TAG = "scrcpy:${ScrcpyShizukuService::class.java.canonicalName}"
+    companion object {
+        private val TAG = "scrcpy:${ScrcpyShizukuService::class.java.canonicalName}"
+    }
 
     override fun destroy() {
         System.exit(1)
@@ -53,6 +53,6 @@ class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
             )
             Ln.initLogLevel(options.logLevel)
             Server.scrcpy(options, serverSocket)*/
-        return startServer(port)
+        return ScrcpyServer.start(port)
     }
 }

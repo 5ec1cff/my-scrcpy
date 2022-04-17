@@ -189,22 +189,24 @@ send_init_msg(socket_t socket,
 }
 
 static bool
-device_read_info(socket_t device_socket, char *device_name, struct size *size) {
-    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + 4];
+device_read_info(socket_t device_socket, int *session_id, char *device_name, struct size *size) {
+    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + 8];
     int r = net_recv_all(device_socket, buf, sizeof(buf));
-    if (r < DEVICE_NAME_FIELD_LENGTH + 4) {
+    if (r < DEVICE_NAME_FIELD_LENGTH + 8) {
         LOGE("Could not retrieve device information");
         return false;
     }
+    *session_id = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+    size->width = (buf[4] << 8)
+            | buf[5];
+    size->height = (buf[6] << 8)
+            | buf[7];
+    LOGD("session_id=%d, size={w=%d,h=%d}", *session_id, size->width, size->height);
     // in case the client sends garbage
-    buf[DEVICE_NAME_FIELD_LENGTH - 1] = '\0';
+    buf[8 + DEVICE_NAME_FIELD_LENGTH - 1] = '\0';
     // strcpy is safe here, since name contains at least
     // DEVICE_NAME_FIELD_LENGTH bytes and strlen(buf) < DEVICE_NAME_FIELD_LENGTH
-    strcpy(device_name, (char *) buf);
-    size->width = (buf[DEVICE_NAME_FIELD_LENGTH] << 8)
-            | buf[DEVICE_NAME_FIELD_LENGTH + 1];
-    size->height = (buf[DEVICE_NAME_FIELD_LENGTH + 2] << 8)
-            | buf[DEVICE_NAME_FIELD_LENGTH + 3];
+    strcpy(device_name, (char *) &buf[8]);
     return true;
 }
 
@@ -212,29 +214,7 @@ bool
 server_connect_to(struct server *server, char *device_name, struct size *size, const struct scrcpy_options *options) {
     uint32_t attempts = 100;
     uint32_t delay = 100; // ms
-    server->video_socket =
-        net_connect(server->addr, server->port);
-    if (server->video_socket == INVALID_SOCKET) {
-        return false;
-    }
 
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_INIT_VIDEO;
-    msg.video_init.version = strdup(SCRCPY_VERSION);
-    msg.video_init.maxSize = options->max_size;
-    msg.video_init.maxFps = options->max_fps;
-    msg.video_init.bitRate = options->bit_rate;
-    msg.video_init.displayId = options->display_id;
-    msg.video_init.lockedVideoOrientation = options->lock_video_orientation;
-    char *codec_options = options->codec_options;
-    if (codec_options == NULL) codec_options = "";
-    msg.video_init.codecOptions = strdup(codec_options);
-    char *encoder_name = options->encoder_name;
-    if (encoder_name == NULL) encoder_name = "";
-    msg.video_init.encoderName = strdup(encoder_name);
-    if (!send_init_msg(server->video_socket, &msg)) return false;
-
-    // we know that the device is listening, we don't need several attempts
     server->control_socket =
         net_connect(server->addr, server->port);
     if (server->control_socket == INVALID_SOCKET) {
@@ -247,10 +227,37 @@ server_connect_to(struct server *server, char *device_name, struct size *size, c
     msg2.control_init.displayId = options->display_id;
     msg2.control_init.lockedVideoOrientation = options->lock_video_orientation;
     msg2.control_init.maxSize = options->max_size;
+    msg2.control_init.maxFps = options->max_fps;
+    msg2.control_init.bitRate = options->bit_rate;
+    char *codec_options = options->codec_options;
+    if (codec_options == NULL) codec_options = "";
+    msg2.control_init.codecOptions = strdup(codec_options);
+    char *encoder_name = options->encoder_name;
+    if (encoder_name == NULL) encoder_name = "";
+    msg2.control_init.encoderName = strdup(encoder_name);
+
     if (!send_init_msg(server->control_socket, &msg2)) return false;
 
-    // The sockets will be closed on stop if device_read_info() fails
-    return device_read_info(server->video_socket, device_name, size);
+    int session_id = -1;
+
+    if (!device_read_info(server->control_socket, &session_id, device_name, size) || session_id == -1) {
+        return false;
+    }
+
+    server->video_socket =
+        net_connect(server->addr, server->port);
+    if (server->video_socket == INVALID_SOCKET) {
+        return false;
+    }
+
+    struct control_msg msg;
+    msg.type = CONTROL_MSG_TYPE_INIT_VIDEO;
+    msg.video_init.version = strdup(SCRCPY_VERSION);
+    msg.video_init.session_id = session_id;
+    
+    if (!send_init_msg(server->video_socket, &msg)) return false;
+
+    return true;
 }
 
 void

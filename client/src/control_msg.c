@@ -95,23 +95,19 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
             len += 4;
             buffer_write32be(&buf[len], msg->control_init.displayId);
             len += 4;
+            buffer_write32be(&buf[len], msg->control_init.bitRate);
+            len += 4;
+            buffer_write32be(&buf[len], msg->control_init.maxFps);
+            len += 4;
+            len += write_string(msg->control_init.encoderName, 128, &buf[len]);
+            len += write_string(msg->control_init.codecOptions, 128, &buf[len]);
             return len;
         }
         case CONTROL_MSG_TYPE_INIT_VIDEO: {
             size_t len = 1;
             len += write_string(msg->video_init.version, 128, &buf[len]);
-            buffer_write32be(&buf[len], msg->video_init.maxSize);
+            buffer_write32be(&buf[len], msg->video_init.session_id);
             len += 4;
-            buffer_write32be(&buf[len], msg->video_init.lockedVideoOrientation);
-            len += 4;
-            buffer_write32be(&buf[len], msg->video_init.displayId);
-            len += 4;
-            buffer_write32be(&buf[len], msg->video_init.bitRate);
-            len += 4;
-            buffer_write32be(&buf[len], msg->video_init.maxFps);
-            len += 4;
-            len += write_string(msg->video_init.encoderName, 128, &buf[len]);
-            len += write_string(msg->video_init.codecOptions, 128, &buf[len]);
             return len;
         }
         case CONTROL_MSG_TYPE_INJECT_KEYCODE:
@@ -270,11 +266,11 @@ control_msg_destroy(struct control_msg *msg) {
     switch (msg->type) {
         case CONTROL_MSG_TYPE_INIT_CONTROL:
             free(msg->control_init.version);
+            free(msg->control_init.encoderName);
+            free(msg->control_init.codecOptions);
             break;
         case CONTROL_MSG_TYPE_INIT_VIDEO:
             free(msg->video_init.version);
-            free(msg->video_init.encoderName);
-            free(msg->video_init.codecOptions);
             break;
         case CONTROL_MSG_TYPE_INJECT_TEXT:
             free(msg->inject_text.text);

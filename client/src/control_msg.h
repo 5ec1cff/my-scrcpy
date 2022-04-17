@@ -87,16 +87,14 @@ struct control_msg {
             int maxSize;
             int lockedVideoOrientation;
             int displayId;
-        } control_init;
-        struct {
-            char *version;
-            int maxSize;
-            int lockedVideoOrientation;
-            int displayId;
             int bitRate;
             int maxFps;
             char *encoderName;
             char *codecOptions;
+        } control_init;
+        struct {
+            char *version;
+            int session_id;
         } video_init;
     };
 };

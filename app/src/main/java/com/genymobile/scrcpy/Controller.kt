@@ -6,10 +6,10 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.genymobile.scrcpy.ext.IMEController
-import java.nio.charset.StandardCharsets
+import five.ec1cff.scrcpy.ScrcpyClientRecord
 
 
-class Controller(initControl: InitControl, val handler: Handler, val sender: DeviceMessageSender) {
+class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val sender: DeviceMessageSender) {
 
     private val DEFAULT_DEVICE_ID = 0
 
@@ -25,27 +25,28 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
     private var keepPowerModeOff: Boolean = false
 
     init {
-        val (_, maxSize, lockedVideoOrientation, displayId) = initControl
-        device = ScreenDevice(displayId, maxSize, lockedVideoOrientation)
+        device = clientRecord.device
         initPointers()
         if (device.supportsInputEvents()) {
             IMEController.listener = object: IMEController.Listener {
                 override fun onInputStarted() {
-                    sender.schedulePushMessage(DeviceMessage.createEmpty(DeviceMessage.TYPE_IME_INPUT_STARTED))
+                    sender.schedulePushMessage(DeviceMessage.IMEInputStarted)
                 }
 
                 override fun onInputFinished() {
-                    sender.schedulePushMessage(DeviceMessage.createEmpty(DeviceMessage.TYPE_IME_INPUT_FINISHED))
+                    sender.schedulePushMessage(DeviceMessage.IMEInputFinished)
                 }
 
                 override fun onCursorChanged(x: Float, y: Float) {
                     val pos = floatArrayOf(x, y)
                     device.toScreenPoint(x, y, pos)
                     Ln.d("Controller: onCursorChanged pos from ($x, $y) to (${pos[0]}, ${pos[1]})")
-                    sender.schedulePushMessage(DeviceMessage.createCursorChanged(pos[0], pos[1]))
+                    sender.schedulePushMessage(DeviceMessage.IMECursorChanged(pos[0], pos[1]))
                 }
             }
         }
+        val size = device.screenInfo.videoSize
+        sender.schedulePushInitReply(clientRecord.sessionId, size.width, size.height, ScreenDevice.getDeviceName())
     }
 
     private fun initPointers() {
@@ -110,7 +111,7 @@ class Controller(initControl: InitControl, val handler: Handler, val sender: Dev
                     TYPE_GET_CLIPBOARD -> {
                         val clipboardText = ScreenDevice.getClipboardText()
                         if (clipboardText != null) {
-                            sender.schedulePushMessage(DeviceMessage.createClipboard(clipboardText))
+                            sender.schedulePushMessage(DeviceMessage.PushClipboard(clipboardText))
                         }
                     }
                     TYPE_ROTATE_DEVICE -> {

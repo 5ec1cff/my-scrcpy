@@ -4,148 +4,157 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.genymobile.scrcpy.*
-import java.io.FileDescriptor
+import java.io.IOException
 import java.lang.IllegalStateException
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
 import java.nio.channels.*
-import java.nio.charset.StandardCharsets
 import kotlin.concurrent.thread
 
-class SocketHandler {
-    private val reader = ControlMessageReader()
-    private lateinit var controller: Controller
-    private lateinit var sender: DeviceMessageSender
+class ScrcpyClientRecord(val sessionId: Int, val initData: Init) {
+    lateinit var controller: ScrcpyControllerSocket
+    lateinit var video: ScrcpyVideoSocket
+    var device: ScreenDevice
 
-    fun read(channel: SocketChannel, key: SelectionKey) {
-        reader.readFrom(channel)
-        val msg = reader.next() ?: return
-        if (this::controller.isInitialized) {
-            var newMsg: ControlMessage? = msg
-            while (newMsg != null) {
-                controller.onMessage(newMsg)
-                reader.readFrom(channel)
-                newMsg = reader.next()
+    init {
+        val (_, maxSize, lockedVideoOrientation, displayId) = initData
+        device = ScreenDevice(displayId, maxSize, lockedVideoOrientation)
+        ScrcpyServer.clientMap.put(sessionId, this)
+    }
+
+    fun cleanUp() {
+        if (this::controller.isInitialized)
+            controller.close()
+        if (this::video.isInitialized)
+            video.close()
+        device.cleanUp()
+        ScrcpyServer.clientMap.remove(sessionId)
+        Ln.d("client $sessionId cleanUp")
+    }
+}
+
+object ScrcpyServer {
+    private var started = false
+    private var running = false
+    private lateinit var selector: Selector
+    private lateinit var serverSocketChannel: ServerSocketChannel
+    private var initReader: ControlMessageReader = ControlMessageReader()
+    val clientMap: MutableMap<Int, ScrcpyClientRecord> = HashMap()
+
+    private var nextSessionId = 0
+        get() {
+            field += 1
+            return field
+        }
+
+    private fun selectOnce() {
+        if (selector.select() == 0) return
+        val iterator = selector.selectedKeys().iterator()
+        while (iterator.hasNext()) {
+            val key = iterator.next()
+            iterator.remove()
+            if (key.isAcceptable) {
+                val client = (key.channel() as ServerSocketChannel).accept()
+                client.configureBlocking(false)
+                client.register(selector, SelectionKey.OP_READ, initReader)
+                Ln.d("accept ${client.remoteAddress}")
             }
-        } else {
-            when (msg) {
-                is InitControl -> {
-                    Ln.d("init control for ${channel.remoteAddress} $msg")
-                    val handler = Handler(Looper.getMainLooper())
-                    sender = DeviceMessageSender(key, handler)
-                    controller = Controller(msg, handler, sender)
-                }
-                is InitVideo -> {
-                    Ln.d("init video for ${channel.remoteAddress} $msg")
-                    startVideoStream(msg, channel)
-                    key.attach(null)
-                    key.cancel()
-                }
-                else -> throw IllegalStateException("The socket should initiate first!")
+
+            if (!key.isValid) {
+                key.cancel()
+                continue
             }
-        }
-    }
 
-    fun write() {
-        sender.scheduleWrite()
-    }
-}
-
-const val DEVICE_NAME_FIELD_LENGTH = 64
-
-private fun sendVideoInitMsg(stream: ChannelOutputStream,deviceName: String, width: Int, height: Int) {
-    val buffer = ByteArray(DEVICE_NAME_FIELD_LENGTH + 4)
-    val deviceNameBytes = deviceName.toByteArray(StandardCharsets.UTF_8)
-    val len = StringUtils.getUtf8TruncationIndex(
-        deviceNameBytes,
-        DEVICE_NAME_FIELD_LENGTH - 1
-    )
-    System.arraycopy(deviceNameBytes, 0, buffer, 0, len)
-    // byte[] are always 0-initialized in java, no need to set '\0' explicitly
-    buffer[DEVICE_NAME_FIELD_LENGTH] = (width shr 8).toByte()
-    buffer[DEVICE_NAME_FIELD_LENGTH + 1] = width.toByte()
-    buffer[DEVICE_NAME_FIELD_LENGTH + 2] = (height shr 8).toByte()
-    buffer[DEVICE_NAME_FIELD_LENGTH + 3] = height.toByte()
-    stream.write(ByteBuffer.wrap(buffer))
-}
-
-class ChannelOutputStream(val channel: SocketChannel) {
-
-    fun write(buffer: ByteBuffer) {
-        while (true) {
-            if (!buffer.hasRemaining()) break
-            channel.write(buffer)
-        }
-    }
-}
-
-fun startVideoStream(msg: InitVideo, socket: SocketChannel) {
-    val device = ScreenDevice(msg.displayId, msg.maxSize, msg.lockedVideoOrientation)
-    val codecOptions = CodecOption.parse(msg.codecOptions)
-    val screenEncoder = ScreenEncoder(true, msg.bitRate, msg.maxFps, codecOptions, msg.encoderName)
-    thread(name="video-${msg.displayId}") {
-        try {
-            val size = device.screenInfo.videoSize
-            val stream = ChannelOutputStream(socket)
-            sendVideoInitMsg(stream, ScreenDevice.getDeviceName(), size.width, size.height)
-            screenEncoder.streamScreen(device, stream)
-        } catch (e: Throwable) {
-            Ln.e("error", e)
-            Ln.d("streaming stop")
-        }
-    }
-}
-
-fun startServer(port: Int): Int {
-    Ln.initLogLevel(Ln.Level.DEBUG)
-    val serverSocketChannel = ServerSocketChannel.open().also {
-        it.socket().bind(InetSocketAddress(port))
-        it.configureBlocking(false)
-    }
-    val selector = Selector.open()
-    serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
-    thread(name="scrcpy-main") {
-        while (true) {
-            try {
-                if (selector.select() == 0) continue
-                val iterator = selector.selectedKeys().iterator()
-                while (iterator.hasNext()) {
-                    val key = iterator.next()
-                    iterator.remove()
-                    if (key.isAcceptable) {
-                        val client = (key.channel() as ServerSocketChannel).accept()
-                        client.configureBlocking(false)
-                        client.register(selector, SelectionKey.OP_READ, SocketHandler())
-                        Ln.d("accept ${client.remoteAddress}")
+            if (key.isReadable) {
+                val channel = key.channel() as SocketChannel
+                try {
+                    val attachment = key.attachment()
+                    when (attachment) {
+                        is ControlMessageReader -> {
+                            initReader.readFrom(channel)
+                            val initMsg = initReader.next() ?: continue
+                            when (initMsg) {
+                                is Init -> {
+                                    Ln.d("init control for ${channel.remoteAddress} $initMsg")
+                                    val handler = Handler(Looper.getMainLooper())
+                                    val sender = DeviceMessageSender(key, handler)
+                                    val sessionId = nextSessionId
+                                    val client = ScrcpyClientRecord(sessionId, initMsg)
+                                    Ln.d("create session $sessionId")
+                                    val controller = Controller(client, handler, sender)
+                                    val controllerSocket = ScrcpyControllerSocket(client, initReader, controller, sender, channel)
+                                    client.controller = controllerSocket
+                                    key.attach(controllerSocket)
+                                    initReader = ControlMessageReader()
+                                    controllerSocket.consumeMessage(channel)
+                                }
+                                is StartVideo -> {
+                                    Ln.d("init video for ${channel.remoteAddress} $initMsg")
+                                    key.interestOps(0)
+                                    val clientRecord = clientMap.get(initMsg.sessionId) ?: throw IllegalStateException("failed to find client record")
+                                    val videoSocket = ScrcpyVideoSocket(clientRecord, channel, key)
+                                    clientRecord.video = videoSocket
+                                    key.attach(videoSocket)
+                                    initReader.clear()
+                                }
+                                else -> throw IllegalStateException("The socket should initiate first!")
+                            }
+                        }
+                        is ScrcpySocket -> {
+                            attachment.read(channel)
+                        }
                     }
-
-                    if (key.isReadable) {
-                        val channel = key.channel() as SocketChannel
-                        try {
-                            (key.attachment() as? SocketHandler)?.read(channel, key)
-                        } catch (t: Throwable) {
-                            Log.e("", "failed to handle message from socket ${channel.remoteAddress}", t)
-                            try {
+                } catch (t: Throwable) {
+                    Log.e(
+                        "",
+                        "failed to handle message from socket ${channel.remoteAddress}",
+                        t
+                    )
+                    try {
+                        val attachment = key.attachment()
+                        when (attachment) {
+                            is ScrcpyControllerSocket -> attachment.clientRecord.cleanUp()
+                            is ScrcpyVideoSocket -> attachment.clientRecord.cleanUp()
+                            else -> {
                                 channel.shutdownInput()
                                 channel.shutdownOutput()
                                 channel.close()
-                            } catch (t: Throwable) {
-
                             }
                         }
-                    }
-
-                    if (key.isValid && key.isWritable) {
-                        (key.attachment() as? SocketHandler)?.write()
-                        key.interestOps(SelectionKey.OP_READ)
+                    } catch (t: Throwable) {
                     }
                 }
-            } catch (e: InterruptedException) {
-                selector.close()
-                serverSocketChannel.close()
-                break
+            }
+
+            if (key.isValid && key.isWritable) {
+                (key.attachment() as? ScrcpySocket)?.notifyWrite(key)
             }
         }
     }
-    return serverSocketChannel.socket().localPort.also { Ln.d("listen on $it") }
+
+    fun start(port: Int): Int {
+        if (started) return 0
+        Ln.initLogLevel(Ln.Level.DEBUG)
+        serverSocketChannel = ServerSocketChannel.open().also {
+            it.socket().bind(InetSocketAddress(port))
+            it.configureBlocking(false)
+        }
+        selector = Selector.open()
+        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT)
+        running = true
+        thread(name = "scrcpy-main") {
+            while (running) {
+                try {
+                    selectOnce()
+                } catch (e: IOException) {
+                    selector.close()
+                    serverSocketChannel.close()
+                    break
+                }
+            }
+        }
+        started = true
+        return serverSocketChannel.socket().localPort.also { Ln.d("listen on $it") }
+    }
+
+    fun stop() {}
 }

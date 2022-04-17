@@ -36,13 +36,7 @@ data class SetScreenPowerMode(val mode: Int) : ControlMessage()
 data class Empty(val type: Int) : ControlMessage()
 data class IMEComposing(val text: String) : ControlMessage()
 sealed class InitialMessage : ControlMessage()
-data class InitControl(
-    val version: String,
-    val maxSize: Int,
-    val lockedVideoOrientation: Int,
-    val displayId: Int
-    ): InitialMessage()
-data class InitVideo(
+data class Init(
     val version: String,
     val maxSize: Int,
     val lockedVideoOrientation: Int,
@@ -51,6 +45,10 @@ data class InitVideo(
     val maxFps: Int,
     val encoderName: String?,
     val codecOptions: String?
+    ): InitialMessage()
+data class StartVideo(
+    val version: String,
+    val sessionId: Int
 ): InitialMessage()
 
 

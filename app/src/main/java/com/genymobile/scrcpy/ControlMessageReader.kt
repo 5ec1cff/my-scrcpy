@@ -1,29 +1,34 @@
 package com.genymobile.scrcpy
 
 import java.io.EOFException
-import java.io.IOException
-import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 import java.nio.charset.StandardCharsets
 
 class ControlMessageReader {
+    companion object {
+        const val INJECT_KEYCODE_PAYLOAD_LENGTH = 13
+        const val INJECT_TOUCH_EVENT_PAYLOAD_LENGTH = 27
+        const val INJECT_SCROLL_EVENT_PAYLOAD_LENGTH = 20
+        const val BACK_OR_SCREEN_ON_LENGTH = 1
+        const val SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH = 1
+        const val SET_CLIPBOARD_FIXED_PAYLOAD_LENGTH = 1
 
-    val INJECT_KEYCODE_PAYLOAD_LENGTH = 13
-    val INJECT_TOUCH_EVENT_PAYLOAD_LENGTH = 27
-    val INJECT_SCROLL_EVENT_PAYLOAD_LENGTH = 20
-    val BACK_OR_SCREEN_ON_LENGTH = 1
-    val SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH = 1
-    val SET_CLIPBOARD_FIXED_PAYLOAD_LENGTH = 1
+        private const  val MESSAGE_MAX_SIZE = 1 shl 18; // 256k
 
-    private val MESSAGE_MAX_SIZE = 1 shl 18; // 256k
-
-    val CLIPBOARD_TEXT_MAX_LENGTH = MESSAGE_MAX_SIZE - 6; // type: 1 byte; paste flag: 1 byte; length: 4 bytes
-    val INJECT_TEXT_MAX_LENGTH = 300
+        const val CLIPBOARD_TEXT_MAX_LENGTH =
+            MESSAGE_MAX_SIZE - 6; // type: 1 byte; paste flag: 1 byte; length: 4 bytes
+        const val INJECT_TEXT_MAX_LENGTH = 300
+    }
 
     val buffer = ByteBuffer.allocateDirect(MESSAGE_MAX_SIZE).also { it.limit(0) }
 
     private fun isFull() = buffer.remaining() == buffer.capacity()
+
+    fun clear() {
+        buffer.clear()
+        buffer.limit(0)
+    }
 
     fun readFrom(channel: SocketChannel) {
         if (isFull()) {
@@ -128,12 +133,12 @@ class ControlMessageReader {
                 IMEComposing(text)
             }
             TYPE_INIT_CONTROL -> parseString() ?. let { version ->
-                if (buffer.remaining() < 12) null
-                else InitControl(version, buffer.int, buffer.int, buffer.int)
+                if (buffer.remaining() < 20) null
+                else Init(version, buffer.int, buffer.int, buffer.int, buffer.int, buffer.int, parseString(), parseString())
             }
             TYPE_INIT_VIDEO -> parseString() ?. let { version ->
-                if (buffer.remaining() < 20) null
-                else InitVideo(version, buffer.int, buffer.int, buffer.int, buffer.int, buffer.int, parseString(), parseString())
+                if (buffer.remaining() < 4) null
+                else StartVideo(version, buffer.int)
             }
             else -> {
                 Ln.w("Unknown event type: $type")

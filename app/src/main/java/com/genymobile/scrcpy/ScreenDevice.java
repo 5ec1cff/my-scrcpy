@@ -356,4 +356,8 @@ public final class ScreenDevice {
     public static ContentProvider createSettingsProvider() {
         return SERVICE_MANAGER.getActivityManager().createSettingsProvider();
     }
+
+    public void cleanUp() {
+        // TODO: Clean up ScreenDevice
+    }
 }

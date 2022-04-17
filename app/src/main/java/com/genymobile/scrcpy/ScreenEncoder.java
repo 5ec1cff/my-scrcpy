@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import five.ec1cff.scrcpy.ChannelOutputStream;
+import five.ec1cff.scrcpy.BlockedOutputStream;
 
 public class ScreenEncoder implements ScreenDevice.RotationListener {
 
@@ -56,7 +56,7 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         return rotationChanged.getAndSet(false);
     }
 
-    public void streamScreen(ScreenDevice device, ChannelOutputStream stream) throws IOException {
+    public void streamScreen(ScreenDevice device, BlockedOutputStream stream) throws IOException {
         // Workarounds.prepareMainLooper();
 
         try {
@@ -79,7 +79,7 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         }
     }
 
-    private void internalStreamScreen(ScreenDevice device, ChannelOutputStream stream) throws IOException {
+    private void internalStreamScreen(ScreenDevice device, BlockedOutputStream stream) throws IOException {
         MediaFormat format = createFormat(bitRate, maxFps, codecOptions);
         device.setRotationListener(this);
         boolean alive;
@@ -116,7 +116,7 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         }
     }
 
-    private void internalStreamScreenVirtual(ScreenDevice device, ChannelOutputStream stream) throws IOException {
+    private void internalStreamScreenVirtual(ScreenDevice device, BlockedOutputStream stream) throws IOException {
         System.out.println("internalStreamScreenVirtual");
         MediaFormat format = createFormat(bitRate, maxFps, codecOptions);
         device.setRotationListener(this);
@@ -147,7 +147,7 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         }
     }
 
-    private boolean encode(MediaCodec codec, ChannelOutputStream stream) throws IOException {
+    private boolean encode(MediaCodec codec, BlockedOutputStream stream) throws IOException {
         boolean eof = false;
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
@@ -178,7 +178,7 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         return !eof;
     }
 
-    private void writeFrameMeta(ChannelOutputStream stream, MediaCodec.BufferInfo bufferInfo, int packetSize) throws IOException {
+    private void writeFrameMeta(BlockedOutputStream stream, MediaCodec.BufferInfo bufferInfo, int packetSize) throws IOException {
         headerBuffer.clear();
 
         long pts;
