@@ -21,6 +21,16 @@ public interface IWindowManager extends IInterface {
     void removeRotationWatcher(IRotationWatcher watcher);
     // int watchRotation(IRotationWatcher watcher);
 
+    /**
+     * Registers an IDisplayContainerListener
+     */
+    void registerDisplayWindowListener(IDisplayWindowListener listener);
+
+    /**
+     * Unregisters an IDisplayContainerListener.
+     */
+    void unregisterDisplayWindowListener(IDisplayWindowListener listener);
+
     abstract class Stub extends Binder implements IWindowManager {
         public static IWindowManager asInterface(IBinder obj) {
             throw new RuntimeException("STUB");
