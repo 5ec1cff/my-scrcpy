@@ -1,10 +1,20 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.Scrcpy" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_700</item>
-        <item name="colorAccent">@color/teal_200</item>
-        <!-- Customize your theme here. -->
+    <style name="Base.Theme.Scrcpy" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+
+        <item name="android:colorBackground">@color/colorBackground</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorSurfaceVariant">@color/colorSurfaceVariant</item>
+        <item name="colorSecondaryContainer">@color/colorSecondaryContainer</item>
     </style>
+
+    <style name="DefaultCard" parent="Widget.Material3.CardView.Filled" >
+        <item name="android:layout_marginHorizontal">20dp</item>
+        <item name="android:layout_marginVertical">5dp</item>
+    </style>
+
+    <style name="Theme.Scrcpy" parent="Base.Theme.Scrcpy" />
 </resources>

@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="five.ec1cff.scrcpy">
+    package="five.ec1cff.scrcpy"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
+        android:name=".App"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:name=".App"
         android:theme="@style/Theme.Scrcpy">
+        <activity
+            android:name=".launcher.LauncherActivity"
+            android:label="launcher"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"/>
+
         <service
             android:name=".ScrcpyFrontService"
             android:enabled="true"
@@ -42,8 +52,8 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
-
-        <!--provider
+        <!--
+provider
             android:name=".ext.Provider"
             android:authorities="five.ec1cff.scrcpy.ext"
             android:enabled="true"
@@ -53,14 +63,14 @@
         <service
             android:name=".ext.inputmethod.HelperService"
             android:enabled="true"
-            android:exported="true" /-->
-
+            android:exported="true" /
+        -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
             android:enabled="true"
             android:exported="true"
+            android:multiprocess="false"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 

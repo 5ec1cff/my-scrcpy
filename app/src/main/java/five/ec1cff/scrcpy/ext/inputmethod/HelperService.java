@@ -192,7 +192,7 @@ public class HelperService extends Service {
         lpRoot.gravity = Gravity.LEFT | Gravity.TOP;
         lpRoot.type = LayoutParams.TYPE_APPLICATION_OVERLAY;
         lpRoot.flags = LayoutParams.FLAG_NOT_FOCUSABLE | LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                | LayoutParams.FLAG_LAYOUT_NO_LIMITS | LayoutParams.FLAG_LAYOUT_INSET_DECOR;
+                | LayoutParams.FLAG_LAYOUT_NO_LIMITS ;// | LayoutParams.FLAG_LAYOUT_INSET_DECOR;
         lpRoot.format = PixelFormat.TRANSPARENT;
         wm.addView(root, lpRoot);
         root.setOnTouchListener(new Controller(root, lpRoot));

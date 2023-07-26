@@ -7,10 +7,8 @@ import com.genymobile.scrcpy.wrappers.InputManager;
 import com.genymobile.scrcpy.wrappers.ServiceManager;
 import com.genymobile.scrcpy.wrappers.SurfaceControl;
 
-import android.app.ActivityOptions;
-import android.content.ComponentName;
+import android.annotation.SuppressLint;
 import android.content.IOnPrimaryClipChangedListener;
-import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
@@ -25,6 +23,7 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.Surface;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -32,8 +31,8 @@ import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESE
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE;
 
-import five.ec1cff.scrcpy.BuildConfig;
-import five.ec1cff.scrcpy.LauncherActivity;
+import five.ec1cff.scrcpy.multitask.TaskOrganizer;
+import five.ec1cff.scrcpy.launcher.LauncherActivity;
 import five.ec1cff.scrcpy.ScrcpyServer;
 
 public final class ScreenDevice extends IRotationWatcher.Stub {
@@ -75,6 +74,8 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
 
     private VirtualDisplay virtualDisplay;
 
+    private Surface virtualDisplaySurface;
+
     public boolean isVirtual = false;
 
     private boolean rotationWatcherRegistered = false;
@@ -85,14 +86,13 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
             if (i == displayId) {
                 Ln.d("virtual display created:" + i);
                 registerRotationWatcher();
+                TaskOrganizer.INSTANCE.getRootTaskForDisplay(displayId);
 
-                /*Intent launcher = new Intent();
-                launcher.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                launcher.setComponent(new ComponentName(BuildConfig.APPLICATION_ID, LauncherActivity.class.getName()));
-                ActivityOptions options = ActivityOptions.makeBasic();
-                options.setLaunchDisplayId(displayId);
-                ScrcpyServer.INSTANCE.getContext().startActivity(launcher, options.toBundle());
-                 */
+                try {
+                    LauncherActivity.Companion.showLauncherOnDisplay(displayId);
+                } catch (Throwable t) {
+                    Ln.e("failed to start launcher", t);
+                }
 
                 SERVICE_MANAGER.getWindowManager().unregisterDisplayWindowListener(this);
             }
@@ -119,6 +119,7 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
         }
     };
 
+    @SuppressLint("NewApi")
     public ScreenDevice(int requestedDisplayId, int maxSize, int lockedVideoOrientation) {
         MyDisplayManager myDisplayManager = SERVICE_MANAGER.getDisplayManager();
         displayId = requestedDisplayId;
@@ -137,9 +138,14 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
             } else {
                 flags = VIRTUAL_DISPLAY_FLAG_PRESENTATION;
             }
+            int w = mainDisplaySize.getWidth();
+            int h = mainDisplaySize.getHeight();
+            android.view.SurfaceControl sc = new android.view.SurfaceControl.Builder()
+                    .setBufferSize(w, h).setName("vd").build();
+            virtualDisplaySurface = new Surface(sc);
             VirtualDisplay vd = displayManager.createVirtualDisplay("scrcpy_" + displayId,
-                    mainDisplaySize.getWidth(), mainDisplaySize.getHeight(), mainDisplay.getDensityDpi(),
-                    null, flags);
+                    w, h, mainDisplay.getDensityDpi(),
+                    virtualDisplaySurface, flags);
             if (vd != null) {
                 displayId = vd.getDisplay().getDisplayId();
                 displayInfo = myDisplayManager.getDisplayInfo(displayId);
@@ -432,7 +438,12 @@ public final class ScreenDevice extends IRotationWatcher.Stub {
             SERVICE_MANAGER.getWindowManager().removeRotationWatcher(this);
         }
         if (isVirtual && virtualDisplay != null) {
+            // move our tasks to the bottom of primary display
+            TaskOrganizer.INSTANCE.moveTasksToDisplay(displayId, 0);
             virtualDisplay.release();
+        }
+        if (isVirtual && virtualDisplaySurface != null) {
+            virtualDisplaySurface.release();
         }
     }
 

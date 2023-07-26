@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import com.genymobile.scrcpy.ext.IMEController
 import five.ec1cff.scrcpy.ScrcpyClientRecord
+import five.ec1cff.scrcpy.launcher.LauncherActivity
 
 
 class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val sender: DeviceMessageSender) {
@@ -150,6 +151,14 @@ class Controller(val clientRecord: ScrcpyClientRecord, val handler: Handler, val
         val (action: Int, keycode: Int, repeat: Int, metaState: Int) = msg
         if (keepPowerModeOff && action == KeyEvent.ACTION_UP && (keycode == KeyEvent.KEYCODE_POWER || keycode == KeyEvent.KEYCODE_WAKEUP)) {
             schedulePowerModeOff()
+        }
+        if (device.isVirtual) {
+            when (keycode) {
+                KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_APP_SWITCH -> {
+                    LauncherActivity.showLauncherOnDisplay(device.displayId)
+                    return true
+                }
+            }
         }
         return device.injectKeyEvent(action, keycode, repeat, metaState)
     }

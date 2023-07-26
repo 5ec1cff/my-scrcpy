@@ -41,6 +41,8 @@ class ScrcpyFrontService : Service() {
         override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
             Log.d(TAG, "shizuku service connected")
             shizukuService = IScrcpyShizukuService.Stub.asInterface(p1)
+            App.scrcpyShizukuService = shizukuService
+            App.taskController = shizukuService.taskController
             val serverPort = shizukuService.startScrcpy(0, MyInputMethod.inputMethod.asBinder())
             Log.d(TAG, "server listen on ${serverPort}")
             handler.post {

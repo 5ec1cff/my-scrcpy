@@ -60,22 +60,22 @@ public class ScreenEncoder implements ScreenDevice.RotationListener {
         // Workarounds.prepareMainLooper();
 
         try {
-            if (!device.isVirtual) {
+            // if (!device.isVirtual) {
                 internalStreamScreen(device, stream);
-            } else {
-                internalStreamScreenVirtual(device, stream);
-            }
+            // } else {
+            //     internalStreamScreenVirtual(device, stream);
+            // }
         } catch (NullPointerException e) {
             // Retry with workarounds enabled:
             // <https://github.com/Genymobile/scrcpy/issues/365>
             // <https://github.com/Genymobile/scrcpy/issues/940>
             Ln.d("Applying workarounds to avoid NullPointerException");
             // Workarounds.fillAppInfo();
-            if (!device.isVirtual) {
+            // if (!device.isVirtual) {
                 internalStreamScreen(device, stream);
-            } else {
-                internalStreamScreenVirtual(device, stream);
-            }
+            // } else {
+                // internalStreamScreenVirtual(device, stream);
+            // }
         }
     }
 

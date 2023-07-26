@@ -1,10 +1,12 @@
 package five.ec1cff.scrcpy
 
 import android.os.*
-import android.system.Os
 import android.util.Log
 import com.genymobile.scrcpy.ext.IMEController
 import five.ec1cff.scrcpy.ext.shared.IInputMethod
+import five.ec1cff.scrcpy.multitask.TaskController
+import five.ec1cff.scrcpy.multitask.TaskOrganizer
+import five.ec1cff.scrcpy.util.BinderWrapper
 
 class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
     companion object {
@@ -26,6 +28,7 @@ class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
                 setClient(IMEController.client.asBinder())
             }
         }
+        TaskOrganizer.init()
             /*
             val options = Server.createOptions(
                 "1.18",
@@ -50,4 +53,13 @@ class ScrcpyShizukuService : IScrcpyShizukuService.Stub() {
             Server.scrcpy(options, serverSocket)*/
         return ScrcpyServer.start(port)
     }
+
+    override fun getBinderWrapper(target: IBinder?): IBinder {
+        return BinderWrapper(target)
+    }
+
+    override fun getTaskController(): IScrcpyTaskController {
+        return TaskController
+    }
+
 }
